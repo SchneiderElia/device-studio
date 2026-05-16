@@ -1,3 +1,9 @@
+/**
+ * Device Studio - Professional Multi-Device Testing Platform
+ * Copyright (C) 2026 nologosolobrand-ES
+ * Released under the GNU General Public License v3.0
+ */
+
 "use client";
 
 import { useState, useEffect, useRef } from "react";
