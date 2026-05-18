@@ -40,40 +40,19 @@ import {
 } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 
-const DeviceFrame = ({ deviceData, frameRef, isRotated, scale, isMixMode, isComparisonMode, url, isSyncEnabled, iframeKey }) => {
+const DeviceFrame = ({ device, url, scale, isRotated, showBrowserBar, id, iframeKey, isMixMode, isComparisonMode }) => {
+  const frameRef = useRef(null);
+  const deviceData = device;
   const dWidth = isRotated ? deviceData.height : deviceData.width;
   const dHeight = isRotated ? deviceData.width : deviceData.height;
+
   const mixScale = deviceData.type === 'mobile' ? 0.8 : deviceData.type === 'tablet' ? 0.6 : 0.5;
   const typeScale = (deviceData.type === 'mobile' || deviceData.type === 'tablet') ? 0.9 : 1;
   const currentScale = scale * (isMixMode ? mixScale : isComparisonMode ? 0.7 : 1) * typeScale;
+  
+  const browserBarHeight = (deviceData.type === "mobile" || deviceData.type === "tablet") && showBrowserBar ? 60 : 0;
   const chromeHeight = 80;
-  const totalHeight = dHeight + chromeHeight;
-
-  // Bridge Listener: Captures scroll from the iframe and broadcasts it
-  useEffect(() => {
-    if (!isSyncEnabled) return;
-    
-    let lastY = 0;
-    const handleMessage = (e) => {
-      if (e.data.type === 'scroll-from-client') {
-        if (Math.abs(e.data.y - lastY) < 2) return; // Ignore micro-scrolls
-        lastY = e.data.y;
-
-        // Broadcast to other frames using RequestAnimationFrame for smoothness
-        requestAnimationFrame(() => {
-          const frames = document.querySelectorAll('iframe');
-          frames.forEach(frame => {
-            if (frame.contentWindow) {
-              frame.contentWindow.postMessage({ type: 'scroll-sync', y: e.data.y }, '*');
-            }
-          });
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isSyncEnabled]);
+  const totalHeight = dHeight + browserBarHeight + (deviceData.type === 'laptop' || deviceData.type === 'desktop' ? chromeHeight : 0);
 
   return (
     <div 
@@ -84,6 +63,7 @@ const DeviceFrame = ({ deviceData, frameRef, isRotated, scale, isMixMode, isComp
         ref={frameRef}
         className="absolute transition-all duration-300 ease-in-out bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden flex flex-col shrink-0 shadow-sm"
         style={{ transform: `scale(${currentScale})`, transformOrigin: "top center", top: 0 }}
+        data-device-id={id}
       >
         {deviceData.type === "mobile" || deviceData.type === "tablet" ? (
           <div className="flex flex-col shrink-0 z-20">
@@ -110,20 +90,21 @@ const DeviceFrame = ({ deviceData, frameRef, isRotated, scale, isMixMode, isComp
               <div className="w-24 flex justify-end gap-3 text-zinc-400"><Share size={16} /><Maximize size={16} /></div>
             </div>
             <div className="h-8 bg-zinc-50 dark:bg-zinc-900/50 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-4 gap-4 overflow-hidden">
-              <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-medium"><div className="flex items-center gap-1.5 hover:text-white transition-colors"><Globe size={10} /><span>Google</span></div><div className="flex items-center gap-1.5 hover:text-white transition-colors"><Globe size={10} /><span>GitHub</span></div><div className="flex items-center gap-1.5 hover:text-white transition-colors"><Layout size={10} /><span>Figma</span></div></div>
+              <div className="flex items-center gap-4 text-[10px] text-zinc-500 font-medium">
+                <div className="flex items-center gap-1.5 hover:text-white transition-colors"><Globe size={10} /><span>Google</span></div>
+                <div className="flex items-center gap-1.5 hover:text-white transition-colors"><Globe size={10} /><span>GitHub</span></div>
+                <div className="flex items-center gap-1.5 hover:text-white transition-colors"><Layout size={10} /><span>Figma</span></div>
+              </div>
             </div>
           </div>
         )}
         <div className="relative bg-white dark:bg-zinc-900 overflow-hidden" style={{ width: `${dWidth}px`, height: `${dHeight}px` }}>
           {url ? (
             <iframe 
-              key={iframeKey} 
+              key={iframeKey}
               src={url} 
               className="w-full h-full border-none no-scrollbar" 
-              style={{ 
-                width: '100%',
-                height: '100%',
-              }}
+              style={{ width: '100%', height: '100%' }}
               title="Preview" 
             />
           ) : (
@@ -131,7 +112,7 @@ const DeviceFrame = ({ deviceData, frameRef, isRotated, scale, isMixMode, isComp
               <Monitor size={32} className="mb-4 opacity-20" /><h2 className="text-sm font-bold mb-1">Device Preview</h2><p className="text-[10px]">Enter a URL to start testing.</p>
             </div>
           )}
-          {(deviceData.type === "mobile" || deviceData.type === "tablet") && (
+          {showBrowserBar && (deviceData.type === "mobile" || deviceData.type === "tablet") && (
             <div className={`absolute ${deviceData.type === 'tablet' ? 'bottom-10' : 'bottom-6'} left-1/2 -translate-x-1/2 w-[92%] h-12 bg-white/85 dark:bg-zinc-900/85 backdrop-blur-xl rounded-2xl border border-black/5 flex items-center px-4 gap-3 z-10 shadow-lg`}>
               <div className="text-[10px] font-medium text-zinc-500">AA</div>
               <div className="flex-1 flex items-center justify-center gap-1.5 min-w-0">
@@ -141,7 +122,7 @@ const DeviceFrame = ({ deviceData, frameRef, isRotated, scale, isMixMode, isComp
               <Share size={14} className="text-zinc-500" />
             </div>
           )}
-          {(deviceData.type === "mobile" || deviceData.type === "tablet") && <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/20 dark:bg-white/20 rounded-full z-10" />}
+          {showBrowserBar && (deviceData.type === "mobile" || deviceData.type === "tablet") && <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 w-32 h-1 bg-black/20 dark:bg-white/20 rounded-full z-10" />}
         </div>
       </div>
     </div>
@@ -152,7 +133,6 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [url, setUrl] = useState("");
   const [inputUrl, setInputUrl] = useState("");
-  const [iframeKey, setIframeKey] = useState(0);
   
   const [device, setDevice] = useState({ name: "MacBook Air", width: 1440, height: 900, type: "laptop" });
   const [isRotated, setIsRotated] = useState(false);
@@ -164,8 +144,10 @@ export default function Home() {
   const [showUI, setShowUI] = useState(true);
   const [screenshotBlob, setScreenshotBlob] = useState(null);
   const [isComparisonMode, setIsComparisonMode] = useState(false);
-  const [secondDevice, setSecondDevice] = useState(null);
-  const [activeSlot, setActiveSlot] = useState(1);
+  const [comparisonDevices, setComparisonDevices] = useState([
+    { name: "iPhone 16", width: 393, height: 852, type: "mobile" },
+    { name: "iPad Pro", width: 1032, height: 1376, type: "tablet" }
+  ]);
   const [isMixMode, setIsMixMode] = useState(false);
   const [mixCategory, setMixCategory] = useState("mobile");
   const [showConsole, setShowConsole] = useState(false);
@@ -174,12 +156,13 @@ export default function Home() {
   const [isSyncEnabled, setIsSyncEnabled] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
-  const [localIp, setLocalIp] = useState("");
+  const [iframeKey, setIframeKey] = useState(0);
+  const [secondDevice, setSecondDevice] = useState(null);
+  const [activeSlot, setActiveSlot] = useState(1);
   const [copied, setCopied] = useState(false);
+  const [localIp, setLocalIp] = useState("");
+  const [showBrowserBar, setShowBrowserBar] = useState(true);
   const menuTimeoutRef = useRef(null);
-
-  const containerRef = useRef(null);
-  const deviceRef = useRef(null);
 
   useEffect(() => {
     setMounted(true);
@@ -190,17 +173,17 @@ export default function Home() {
     const savedAutoScale = localStorage.getItem('ds_auto_scale');
     const savedIsRotated = localStorage.getItem('ds_is_rotated');
     const savedShowUI = localStorage.getItem('ds_show_ui');
+    const savedShowBrowserBar = localStorage.getItem('ds_show_browser_bar');
+    const savedLocalIp = localStorage.getItem('ds_local_ip');
 
-    if (savedUrl) setUrl(savedUrl);
-    if (savedUrl) setInputUrl(savedUrl);
+    if (savedUrl) { setUrl(savedUrl); setInputUrl(savedUrl); }
     if (savedDevice) setDevice(JSON.parse(savedDevice));
     if (savedCustomWidth) setCustomWidth(parseInt(savedCustomWidth));
     if (savedCustomHeight) setCustomHeight(parseInt(savedCustomHeight));
     if (savedAutoScale) setAutoScale(savedAutoScale === 'true');
     if (savedIsRotated) setIsRotated(savedIsRotated === 'true');
     if (savedShowUI) setShowUI(savedShowUI === 'true');
-    
-    const savedLocalIp = localStorage.getItem('ds_local_ip');
+    if (savedShowBrowserBar) setShowBrowserBar(savedShowBrowserBar === 'true');
     if (savedLocalIp) setLocalIp(savedLocalIp);
   }, []);
 
@@ -213,11 +196,73 @@ export default function Home() {
     localStorage.setItem('ds_auto_scale', autoScale.toString());
     localStorage.setItem('ds_is_rotated', isRotated.toString());
     localStorage.setItem('ds_show_ui', showUI.toString());
+    localStorage.setItem('ds_show_browser_bar', showBrowserBar.toString());
     localStorage.setItem('ds_local_ip', localIp);
-  }, [url, device, customWidth, customHeight, autoScale, isRotated, showUI, localIp, mounted]);
+  }, [url, device, customWidth, customHeight, autoScale, isRotated, showUI, showBrowserBar, localIp, mounted]);
+
+  const handleDeviceChange = (p) => {
+    if (activeSlot === 1) {
+      setDevice(p);
+      if (p.type === "mobile" || p.type === "tablet") {
+        setCustomWidth(p.width);
+        setCustomHeight(p.height);
+      }
+    } else {
+      setSecondDevice(p);
+    }
+    setIframeKey(k => k + 1);
+  };
+
+  const detectLocalIp = async () => {
+    try {
+      const response = await fetch('/api/get-ip');
+      const data = await response.json();
+      if (data.ip && data.ip.startsWith("192.168.")) {
+        setLocalIp(data.ip.replace("192.168.", ""));
+      }
+    } catch (e) { console.error("IP Detection failed", e); }
+  };
+
+  const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!url) return;
+    setMounted(true);
+  }, []);
+
+  // Centralized Sync Listener
+  useEffect(() => {
+    if (!isSyncEnabled) return;
+
+    const handleMessage = (e) => {
+      if (!e.data || typeof e.data !== 'object' || !e.data.type) return;
+
+      const broadcast = (data) => {
+        const frames = document.querySelectorAll('iframe');
+        frames.forEach(frame => {
+          // IMPORTANT: Do not send the message back to the source frame
+          // We identify the source by comparing the contentWindow
+          if (frame.contentWindow && frame.contentWindow !== e.source) {
+            frame.contentWindow.postMessage(data, '*');
+          }
+        });
+      };
+
+      if (e.data.type === 'scroll-from-client') {
+        broadcast({ type: 'scroll-sync', y: e.data.y });
+      }
+      if (e.data.type === 'click-from-client') {
+        broadcast({ type: 'click-sync', selector: e.data.selector });
+      }
+      if (e.data.type === 'input-from-client') {
+        broadcast({ type: 'input-sync', selector: e.data.selector, value: e.data.value });
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isSyncEnabled]);
+
+  useEffect(() => {
     const formatHTML = (html) => {
       let formatted = '';
       let reg = /(>)(<)(\/*)/g;
@@ -269,23 +314,29 @@ export default function Home() {
         }
       }
     };
-    fetchSource();
+    if (url) fetchSource();
   }, [url]);
 
   const presets = [
+    { name: "Small Phone (Old Gen)", width: 320, height: 568, type: "mobile" },
+    { name: "Compact Phone (360px)", width: 360, height: 740, type: "mobile" },
     { name: "iPhone 13/14 Mini", width: 375, height: 812, type: "mobile" },
     { name: "iPhone 15/16/17", width: 393, height: 740, type: "mobile" },
     { name: "iPhone 16/17 Pro", width: 402, height: 760, type: "mobile" },
     { name: "Google Pixel 9/10 Pro", width: 412, height: 810, type: "mobile" },
-    { name: "Google Pixel 9/10 Pro XL", width: 448, height: 870, type: "mobile" },
     { name: "iPhone 16/17 Pro Max", width: 440, height: 830, type: "mobile" },
+    { name: "Google Pixel 9/10 Pro XL", width: 448, height: 870, type: "mobile" },
     { name: "Galaxy S25/S26 Ultra", width: 450, height: 850, type: "mobile" },
+    { name: "Phablet / Large Mobile", width: 540, height: 960, type: "mobile" },
+    { name: "Small Tablet (7-inch)", width: 600, height: 960, type: "tablet" },
     { name: "Galaxy Z Fold (Open)", width: 768, height: 1024, type: "tablet" },
     { name: "iPad Mini 7", width: 768, height: 1024, type: "tablet" },
     { name: "Samsung Galaxy Tab S10", width: 800, height: 1280, type: "tablet" },
     { name: "iPad Air 11 (M3)", width: 820, height: 1180, type: "tablet" },
     { name: "iPad Pro 11 (M4)", width: 834, height: 1210, type: "tablet" },
     { name: "iPad Pro 13 (M4/M5)", width: 1032, height: 1376, type: "tablet" },
+    { name: "Legacy Monitor / iPad Land.", width: 1024, height: 768, type: "desktop" },
+    { name: "Small Laptop (Netbook)", width: 1152, height: 720, type: "laptop" },
     { name: "Steam Deck / ROG Ally", width: 1280, height: 800, type: "laptop" },
     { name: "MacBook Air 13 (M3)", width: 1440, height: 900, type: "laptop" },
     { name: "MacBook Pro 14 (M4)", width: 1512, height: 982, type: "laptop" },
@@ -300,37 +351,8 @@ export default function Home() {
     { name: "4K Monitor", width: 3840, height: 2160, type: "desktop" },
   ];
 
-  const detectLocalIp = async () => {
-    try {
-      const response = await fetch('/api/get-ip');
-      const data = await response.json();
-      if (data.ip && data.ip.startsWith("192.168.")) {
-        setLocalIp(data.ip.replace("192.168.", ""));
-      } else if (data.ip) {
-        // Handle other local IP ranges if needed, but for now just show it
-        alert(`Found non-standard IP: ${data.ip}`);
-      }
-    } catch (e) { 
-      console.error("IP Detection failed", e);
-      alert("Detection failed. Please enter IP manually.");
-    }
-  };
-
   const displayWidth = isRotated ? device.height : device.width;
   const displayHeight = isRotated ? device.width : device.height;
-
-  const handleDeviceChange = (p) => {
-    if (activeSlot === 1) {
-      setDevice(p);
-      if (p.type === "mobile" || p.type === "tablet") {
-        setCustomWidth(p.width);
-        setCustomHeight(p.height);
-      }
-    } else {
-      setSecondDevice(p);
-    }
-    setIframeKey(k => k + 1);
-  };
 
   useEffect(() => {
     const CHROME_HEIGHT = 32;
@@ -361,6 +383,21 @@ export default function Home() {
     }
   }, [device, autoScale, isRotated, displayWidth, displayHeight, mounted]);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !isMixMode) return;
+
+    const handleWheel = (e) => {
+      if (e.deltaY !== 0) {
+        container.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    };
+
+    container.addEventListener("wheel", handleWheel, { passive: false });
+    return () => container.removeEventListener("wheel", handleWheel);
+  }, [isMixMode]);
+
   const handleUrlSubmit = (e) => {
     e.preventDefault();
     let formattedUrl = inputUrl.trim();
@@ -379,28 +416,12 @@ export default function Home() {
   };
 
   const handleScreenshot = async () => {
-    if (!deviceRef.current) return;
+    const element = containerRef.current;
+    if (!element) return;
     try {
-      const blob = await htmlToImage.toBlob(deviceRef.current, { quality: 1, pixelRatio: 2 });
+      const blob = await htmlToImage.toBlob(element, { quality: 1, pixelRatio: 2 });
       setScreenshotBlob(blob);
     } catch (err) { console.error("Screenshot error:", err); }
-  };
-
-  const saveScreenshot = () => {
-    if (!screenshotBlob) return;
-    const link = document.createElement('a');
-    link.download = `device-studio-${device.name.replace(/\s+/g, '-').toLowerCase()}.png`;
-    link.href = URL.createObjectURL(screenshotBlob);
-    link.click();
-    setScreenshotBlob(null);
-  };
-
-  const copyScreenshot = async () => {
-    if (!screenshotBlob) return;
-    try {
-      await navigator.clipboard.write([new ClipboardItem({ 'image/png': screenshotBlob })]);
-      setScreenshotBlob(null);
-    } catch (err) { console.error("Copy failed:", err); }
   };
 
   if (!mounted) return null;
@@ -421,47 +442,52 @@ export default function Home() {
         <a href={url} target="_blank" className="p-2 hover:bg-white/10 rounded-full text-zinc-400 hover:text-white transition-all"><ExternalLink size={16} /></a>
       </header>
 
-      <main ref={containerRef} className={`flex h-full w-full items-center ${isMixMode ? "justify-start" : "justify-center"} p-4 md:p-10 no-scrollbar ${autoScale && !isMixMode ? "overflow-hidden" : "overflow-auto scroll-smooth"}`}>
-        <div className={`flex items-center ${isMixMode ? "justify-start" : "justify-center"} gap-12 transition-all duration-700 ${isMixMode ? "w-full min-w-max px-64" : ""}`}>
+      <main 
+        ref={containerRef} 
+        className={`flex h-full w-full items-center ${isMixMode ? "justify-start overflow-x-auto overflow-y-hidden" : "justify-center"} p-4 md:p-10 no-scrollbar ${!isMixMode && autoScale ? "overflow-hidden" : "overflow-auto scroll-smooth"}`}
+      >
+        <div className={`flex items-center ${isMixMode ? "justify-start h-full" : "justify-center"} gap-12 transition-all duration-700 ${isMixMode ? "min-w-max px-64" : ""}`}>
           {isMixMode ? (
             presets.filter(p => mixCategory === 'desktop' ? (p.type === 'desktop' || p.type === 'laptop') : p.type === mixCategory).map((p) => (
               <div key={p.name} className="flex flex-col items-start gap-1.5 relative">
-                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest ml-1">{p.name}</span>
+                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest ml-1">{p.name} <span className="opacity-90 ml-2 font-mono">({isRotated ? p.height : p.width}×{isRotated ? p.width : p.height})</span></span>
                 <DeviceFrame 
-                  deviceData={p} 
+                  id={`mix-${p.name}`}
+                  device={p} 
+                  url={url} 
+                  scale={scale} 
                   isRotated={isRotated}
-                  scale={scale}
-                  isMixMode={isMixMode}
-                  isComparisonMode={isComparisonMode}
-                  url={url}
+                  showBrowserBar={showBrowserBar}
                   isSyncEnabled={isSyncEnabled}
-                  iframeKey={iframeKey}
+                  isMixMode={true}
+                  isComparisonMode={false}
                 />
               </div>
             ))
           ) : (
             <>
               <DeviceFrame 
-                deviceData={device} 
-                frameRef={deviceRef} 
+                id="main-device"
+                device={device} 
+                url={url} 
+                scale={scale} 
                 isRotated={isRotated}
-                scale={scale}
-                isMixMode={isMixMode}
-                isComparisonMode={isComparisonMode}
-                url={url}
-                isSyncEnabled={isSyncEnabled}
+                showBrowserBar={showBrowserBar}
                 iframeKey={iframeKey}
+                isMixMode={false}
+                isComparisonMode={isComparisonMode}
               />
               {isComparisonMode && (
                 <DeviceFrame 
-                  deviceData={secondDevice || presets[0]} 
+                  id="comp-2"
+                  device={secondDevice || presets[0]} 
+                  url={url} 
+                  scale={scale} 
                   isRotated={isRotated}
-                  scale={scale}
-                  isMixMode={isMixMode}
-                  isComparisonMode={isComparisonMode}
-                  url={url}
-                  isSyncEnabled={isSyncEnabled}
+                  showBrowserBar={showBrowserBar}
                   iframeKey={iframeKey}
+                  isMixMode={false}
+                  isComparisonMode={true}
                 />
               )}
             </>
@@ -475,7 +501,31 @@ export default function Home() {
           <div className="w-px h-6 bg-white/10" />
           <div className="flex flex-col"><span className="text-zinc-500 text-[8px]">Device</span><span className="text-indigo-400">{device.name}</span></div>
           <div className="w-px h-6 bg-white/10" />
-          <div className="flex flex-col"><span className="text-zinc-500 text-[8px]">Zoom</span><span>{Math.round(scale * 100)}%</span></div>
+          <div className="flex flex-col">
+            <span className="text-zinc-500 text-[8px]">Zoom</span>
+            <div className="flex items-center gap-3">
+              <span className="w-8">{Math.round(scale * 100)}%</span>
+              <input 
+                type="range" 
+                min="0.1" 
+                max="2" 
+                step="0.01" 
+                value={scale} 
+                onChange={(e) => { setScale(parseFloat(e.target.value)); setAutoScale(false); }}
+                className="w-20 h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-indigo-500"
+              />
+              <button 
+                onClick={() => setAutoScale(true)} 
+                className="flex items-center gap-1.5 px-2 py-1 bg-white/5 hover:bg-white/10 rounded-lg text-[8px] text-zinc-400 hover:text-white transition-all"
+              >
+                <RefreshCcw size={10} /> Reset Default
+              </button>
+            </div>
+          </div>
+          <div className="w-px h-6 bg-white/10" />
+          <button onClick={() => setShowSyncModal(true)} className="p-1 hover:bg-white/10 rounded-full text-zinc-400 hover:text-indigo-400 transition-all group" title="Sync & Bridge Settings">
+            <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
+          </button>
         </div>
       </div>
 
@@ -520,6 +570,7 @@ export default function Home() {
                     <div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-3">Display</h4><div className="space-y-2">
                       <button onClick={() => setAutoScale(!autoScale)} className="w-full flex items-center justify-between px-3 py-2 bg-white/5 rounded-xl text-xs text-zinc-300"><span>Fit to Screen</span><div className={`w-8 h-4 rounded-full relative ${autoScale ? "bg-indigo-500" : "bg-zinc-700"}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${autoScale ? "right-0.5" : "left-0.5"}`} /></div></button>
                       <button onClick={() => setIsRotated(!isRotated)} className="w-full flex items-center justify-between px-3 py-2 bg-white/5 rounded-xl text-xs text-zinc-300"><span>Orientation</span><RotateCw size={14} className={isRotated ? "rotate-90 text-indigo-400" : ""} /></button>
+                      <button onClick={() => setShowBrowserBar(!showBrowserBar)} className="w-full flex items-center justify-between px-3 py-2 bg-white/5 rounded-xl text-xs text-zinc-300"><span>Browser Bar</span><div className={`w-8 h-4 rounded-full relative ${showBrowserBar ? "bg-indigo-500" : "bg-zinc-700"}`}><div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${showBrowserBar ? "right-0.5" : "left-0.5"}`} /></div></button>
                     </div></div>
                     <div><h4 className="text-[10px] font-bold text-zinc-500 uppercase mb-3">Custom</h4><div className="grid grid-cols-2 gap-2">
                       <input type="number" value={customWidth} onChange={(e) => { setCustomWidth(parseInt(e.target.value)); setDevice({ ...device, width: parseInt(e.target.value), name: "Custom", type: "desktop" }); }} className="w-full px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs" />
@@ -606,6 +657,23 @@ export default function Home() {
       let isSyncing = false;
       let lastY = 0;
 
+      function getPath(el) {
+        if (el.id) return '#' + el.id;
+        let path = [];
+        while (el && el.nodeType === Node.ELEMENT_NODE) {
+          let selector = el.nodeName.toLowerCase();
+          let sibling = el.previousElementSibling;
+          let index = 1;
+          while (sibling) {
+            if (sibling.nodeName === el.nodeName) index++;
+            sibling = sibling.previousElementSibling;
+          }
+          path.unshift(selector + ":nth-of-type(" + index + ")");
+          el = el.parentNode;
+        }
+        return path.join(" > ");
+      }
+
       window.addEventListener('message', e => {
         if (e.data.type === 'scroll-sync') {
           isSyncing = true;
@@ -613,9 +681,23 @@ export default function Home() {
           lastY = e.data.y;
           setTimeout(() => { isSyncing = false; }, 50);
         }
+        if (e.data.type === 'click-sync') {
+          isSyncing = true;
+          const el = document.querySelector(e.data.selector);
+          if (el) el.click();
+          setTimeout(() => { isSyncing = false; }, 50);
+        }
+        if (e.data.type === 'input-sync') {
+          isSyncing = true;
+          const el = document.querySelector(e.data.selector);
+          if (el) {
+            el.value = e.data.value;
+            el.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+          setTimeout(() => { isSyncing = false; }, 50);
+        }
       });
 
-      // Hide Scrollbars for a cleaner mobile look
       const style = document.createElement('style');
       style.textContent = '::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } * { -ms-overflow-style: none !important; scrollbar-width: none !important; }';
       document.head.appendChild(style);
@@ -625,6 +707,18 @@ export default function Home() {
         lastY = window.scrollY;
         window.parent.postMessage({ type: 'scroll-from-client', y: window.scrollY }, '*');
       }, { passive: true });
+
+      document.addEventListener('click', e => {
+        if (isSyncing) return;
+        const selector = getPath(e.target);
+        window.parent.postMessage({ type: 'click-from-client', selector }, '*');
+      }, true);
+
+      document.addEventListener('input', e => {
+        if (isSyncing) return;
+        const selector = getPath(e.target);
+        window.parent.postMessage({ type: 'input-from-client', selector, value: e.target.value }, '*');
+      }, true);
     })();
   \`}
 </Script>`}</pre>
@@ -643,7 +737,7 @@ export default function Home() {
             <div className="p-8 pt-4 flex gap-4">
               <button 
                 onClick={() => {
-                  const turboCode = `import Script from 'next/script';\n\n<Script id="device-studio-bridge" strategy="afterInteractive">\n  {\`\n    (function() {\n      if (window.self === window.top) return;\n      let isSyncing = false;\n      let lastY = 0;\n\n      window.addEventListener('message', e => {\n        if (e.data.type === 'scroll-sync') {\n          isSyncing = true;\n          window.scrollTo(0, e.data.y);\n          lastY = e.data.y;\n          setTimeout(() => { isSyncing = false; }, 50);\n        }\n      });\n\n      const style = document.createElement('style');\n      style.textContent = '::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } * { -ms-overflow-style: none !important; scrollbar-width: none !important; }';\n      document.head.appendChild(style);\n\n      window.addEventListener('scroll', () => {\n        if (isSyncing || Math.abs(window.scrollY - lastY) < 2) return;\n        lastY = window.scrollY;\n        window.parent.postMessage({ type: 'scroll-from-client', y: window.scrollY }, '*');\n      }, { passive: true });\n    })();\n  \`}\n</Script>`;
+                  const turboCode = `import Script from 'next/script';\n\n<Script id="device-studio-bridge" strategy="afterInteractive">\n  {\`\n    (function() {\n      if (window.self === window.top) return;\n      let isSyncing = false;\n      let lastY = 0;\n\n      function getPath(el) {\n        if (el.id) return '#' + el.id;\n        let path = [];\n        while (el && el.nodeType === Node.ELEMENT_NODE) {\n          let selector = el.nodeName.toLowerCase();\n          let sibling = el.previousElementSibling;\n          let index = 1;\n          while (sibling) {\n            if (sibling.nodeName === el.nodeName) index++;\n            sibling = sibling.previousElementSibling;\n          }\n          path.unshift(selector + ":nth-of-type(" + index + ")");\n          el = el.parentNode;\n        }\n        return path.join(" > ");\n      }\n\n      window.addEventListener('message', e => {\n        if (e.data.type === 'scroll-sync') {\n          isSyncing = true;\n          window.scrollTo(0, e.data.y);\n          lastY = e.data.y;\n          setTimeout(() => { isSyncing = false; }, 50);\n        }\n        if (e.data.type === 'click-sync') {\n          isSyncing = true;\n          const el = document.querySelector(e.data.selector);\n          if (el) el.click();\n          setTimeout(() => { isSyncing = false; }, 50);\n        }\n        if (e.data.type === 'input-sync') {\n          isSyncing = true;\n          const el = document.querySelector(e.data.selector);\n          if (el) {\n            el.value = e.data.value;\n            el.dispatchEvent(new Event('input', { bubbles: true }));\n          }\n          setTimeout(() => { isSyncing = false; }, 50);\n        }\n      });\n\n      const style = document.createElement('style');\n      style.textContent = '::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; } * { -ms-overflow-style: none !important; scrollbar-width: none !important; }';\n      document.head.appendChild(style);\n\n      window.addEventListener('scroll', () => {\n        if (isSyncing || Math.abs(window.scrollY - lastY) < 2) return;\n        lastY = window.scrollY;\n        window.parent.postMessage({ type: 'scroll-from-client', y: window.scrollY }, '*');\n      }, { passive: true });\n\n      document.addEventListener('click', e => {\n        if (isSyncing) return;\n        const selector = getPath(e.target);\n        window.parent.postMessage({ type: 'click-from-client', selector }, '*');\n      }, true);\n\n      document.addEventListener('input', e => {\n        if (isSyncing) return;\n        const selector = getPath(e.target);\n        window.parent.postMessage({ type: 'input-from-client', selector, value: e.target.value }, '*');\n      }, true);\n    })();\n  \`}\n</Script>`;
                   navigator.clipboard.writeText(turboCode);
                   setCopied(true);
                   setTimeout(() => setCopied(false), 2000);
